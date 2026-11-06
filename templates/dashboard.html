@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% set s = stmt %}
+
+{% macro case_table(columns, rows, totals, empty) %}
+  {% if rows %}
+  <div class="tbl-scroll" tabindex="0">
+    <table class="cases">
+      <thead>
+        <tr>{% for c in columns %}<th scope="col" class="{{ 'num' if c.numeric }}{{ ' nowrap' if c.nowrap }}">{{ c.name }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>{% for v in r.cells %}<td class="{{ 'num' if columns[loop.index0].numeric }}{{ ' nowrap' if columns[loop.index0].nowrap }}">{{ v if v else '—' }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>{% for t in totals %}<td class="{{ 'num' if columns[loop.index0].numeric }}">{% if loop.first %}Total ({{ rows|length }}){% else %}{{ t }}{% endif %}</td>{% endfor %}</tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro warnings(sec) %}
+  {% if sec.owner_missing %}
+    <p class="warn">The tab “{{ sec.tab }}” has no salesperson email column (POC, BDM or Actual Owner), so cases can’t be matched to you. Tell sales ops.</p>
+  {% elif sec.missing %}
+    <p class="warn">Not found in “{{ sec.tab }}”: {{ sec.missing|join(', ') }}. These columns show as “—”.</p>
+  {% endif %}
+{% endmacro %}
+
+{% block body %}
+<div class="band">
+  <div class="wrap">
+    <div class="topline">
+      <span>DotPe sales incentive</span>
+      <span class="who">{{ s.email }}
+        <form method="post" action="{{ url_for('logout') }}"><button class="link" type="submit">Sign out</button></form>
+      </span>
+    </div>
+    <p class="hello">Hi {{ s.name }}, your total payout for {{ s.period or 'this quarter' }}</p>
+    <p class="total">{{ s.f.total if s.f.total and s.f.total != '-' else '₹0' }}</p>
+    <p class="sub">{{ s.team }}{% if s.role == 'Manager' %} (manager){% endif %}</p>
+  </div>
+</div>
+
+<main class="wrap main">
+  <div class="grid">
+    <section class="panel" aria-labelledby="salTitle">
+      <h2 id="salTitle">Your salary</h2>
+      {% if s.editsOpen %}
+        <p class="hint">Enter your monthly salary. Your quarterly salary is deducted from gross margin, so your incentive updates when you save.</p>
+      {% else %}
+        <p class="hint">Salary entry is closed for this quarter. Contact sales ops if something needs to change.</p>
+      {% endif %}
+      <form id="salForm" novalidate data-csrf="{{ csrf_token() }}" data-url="{{ url_for('save_salary') }}">
+        {% for m in s.months %}
+        <label class="field" for="m{{ loop.index0 }}">
+          <span>{{ m }}</span>
+          <span class="money"><b>₹</b>
+            <input id="m{{ loop.index0 }}" class="sal" type="number" min="0" step="1" inputmode="numeric"
+                   placeholder="0" value="{{ '%d'|format(s.salaries[loop.index0]) if s.salaries[loop.index0] else '' }}"
+                   {% if not s.editsOpen %}disabled{% endif %}>
+          </span>
+        </label>
+        {% endfor %}
+        <div class="qsum"><span>Quarterly salary</span><span id="qsum">₹0</span></div>
+        {% if s.editsOpen %}<button class="primary" id="saveBtn" type="submit">Save and recalculate</button>{% endif %}
+        <p class="status {{ 'ok' if saved }}" id="status" role="status">{% if saved %}Saved and recalculated.{% endif %}</p>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="calcTitle">
+      <h2 id="calcTitle">How your incentive is calculated</h2>
+      <p class="hint">Figures come from the incentive sheet for this quarter.</p>
+      <table class="ledger">
+        <tbody>
+          {% for l in s.ledger %}
+          <tr class="{{ l.cls }}">
+            <td class="op">{{ l.op }}</td>
+            <td class="lbl">{{ l.label }}{% if l.note %}<span class="note">{{ l.note }}</span>{% endif %}</td>
+            <td class="val {{ 'neg' if l.neg }}">{{ l.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <section class="panel cases-panel" aria-labelledby="liveTitle">
+    <h2 id="liveTitle">Your cases this quarter{% if combined.period %} ({{ combined.period }}){% endif %}</h2>
+    {% if not combined.found %}
+      <p class="empty">The Combined ACH tab for this quarter wasn’t found in the sheet.</p>
+    {% else %}
+      <p class="hint">A case is 100% live when both Live % and QR Live % are 100%. A blank QR Live % means QR doesn’t apply to that case.</p>
+      {{ warnings(combined) }}
+      <div class="seg" role="tablist" aria-label="Live status">
+        {% for g in combined.groups %}
+        <button type="button" role="tab" id="tab-{{ g.id }}" aria-controls="panel-{{ g.id }}"
+                aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ 0 if loop.first else -1 }}">
+          {{ g.label }} <span class="count">{{ g.rows|length }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      {% for g in combined.groups %}
+      <div role="tabpanel" id="panel-{{ g.id }}" aria-labelledby="tab-{{ g.id }}" {% if not loop.first %}hidden{% endif %}>
+        {{ case_table(combined.columns, g.rows, g.totals,
+             'None of your cases this quarter are fully live yet.' if g.id == 'full'
+             else 'All of your cases this quarter are fully live.') }}
+      </div>
+      {% endfor %}
+    {% endif %}
+  </section>
+
+  <section class="panel cases-panel" aria-labelledby="remTitle">
+    <h2 id="remTitle">Cases from last quarter still below 100% live{% if remaining.period %} ({{ remaining.period }}){% endif %}</h2>
+    {% if not remaining.found %}
+      <p class="empty">The Remaining ACH tab wasn’t found in the sheet.</p>
+    {% else %}
+      <p class="hint">Difference % is how much more of each case went live this quarter. New Live Gross Margin is what that adds.</p>
+      {{ warnings(remaining) }}
+      {{ case_table(remaining.columns, remaining.rows, remaining.totals,
+           'You have no cases from last quarter below 100% live.') }}
+    {% endif %}
+  </section>
+
+  <details class="panel all">
+    <summary>All figures from your row in the sheet</summary>
+    <div class="tbl-scroll">
+      <table class="kv">
+        <tbody>
+          {% for d in s.details %}<tr><td>{{ d.label }}</td><td>{{ d.value or '—' }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+</main>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='app.js') }}"></script>{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="band band-full">
+  <div class="wrap narrow">
+    <p class="topline">DotPe sales incentive</p>
+    {% if wrong_domain %}
+      <h1 class="hero-title">Sign in with your dotpe.in account</h1>
+      <p class="sub">You signed in as {{ email }}. This page only accepts dotpe.in Google accounts.</p>
+    {% else %}
+      <h1 class="hero-title">This page is only for people listed in the incentive sheet</h1>
+      <p class="sub">You’re signed in as {{ email }}. If this is your work account, ask sales ops to add it to the sheet.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('logout') }}"><button class="btn-light" type="submit">Sign in with another account</button></form>
+  </div>
+</div>
+{% endblock %}

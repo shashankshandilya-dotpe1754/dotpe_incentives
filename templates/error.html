@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="band band-full">
+  <div class="wrap narrow">
+    <p class="topline">DotPe sales incentive</p>
+    <h1 class="hero-title">Your statement couldn’t be loaded</h1>
+    <p class="sub">The incentive sheet didn’t respond. Refresh in a minute. If it keeps happening, tell sales ops.</p>
+    <a class="btn-light" href="{{ url_for('home') }}">Refresh</a>
+  </div>
+</div>
+{% endblock %}

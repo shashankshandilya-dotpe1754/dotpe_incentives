@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sign in · My incentive{% endblock %}
+{% block body %}
+<div class="band band-full">
+  <div class="wrap narrow">
+    <p class="topline">DotPe sales incentive</p>
+    <h1 class="hero-title">See your incentive and enter your salary</h1>
+    <p class="sub">Sign in with your dotpe.in Google account. You’ll only see your own figures.</p>
+    {% if demo %}
+      <form class="demo-login" method="post" action="{{ url_for('demo_login') }}">
+        <label for="email">Demo mode: sign in as</label>
+        <div class="demo-row">
+          <select id="email" name="email">
+            <option>sharvan.kumar@dotpe.in</option>
+            <option>rajat.basak@dotpe.in</option>
+            <option>parmeshwar.keshari@dotpe.in</option>
+            <option>shivam.sharma@dotpe.in</option>
+            <option>nikhil.sandeep@dotpe.in</option>
+            <option>salman.khan@dotpe.in</option>
+            <option>someone.else@dotpe.in</option>
+          </select>
+          <button class="btn-light" type="submit">Sign in</button>
+        </div>
+      </form>
+    {% else %}
+      <a class="btn-light" href="{{ url_for('login') }}">Sign in with Google</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
